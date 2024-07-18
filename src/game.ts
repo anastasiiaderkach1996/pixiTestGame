@@ -12,6 +12,7 @@ export class Game {
     animals: Animal[] = [];
     yard!: Yard;
     score!: Score;
+    spawnInterval: number = 3000; 
 
     constructor() {
         this.app = new Application();
@@ -35,55 +36,53 @@ export class Game {
         this.mainHero = new MainHero(this.app.screen.width / 2, this.app.screen.height / 2);
         this.yard = new Yard(50, 50, 100, 100);
         this.score = new Score(10, 10);
+
         this.app.stage.addChild(this.gameField);
         this.app.stage.addChild(this.mainHero);
         this.app.stage.addChild(this.yard);
         this.app.stage.addChild(this.score.text);
 
-        this.spawnAnimals(10);
-
-        this.app.ticker.add((delta: Ticker) => this.update(delta.deltaTime));
-        this.gameField.interactive = true;
+        this.app.ticker.add((delta: Ticker) => this.update(delta));
         this.gameField.on('pointerdown', this.onPointerDown.bind(this));
+
+        this.startSpawningAnimals();
     }
 
-    spawnAnimals(count: number): void {
-        for (let i = 0; i < count; i++) {
-            const animal = new Animal(
-                Math.random() * this.app.screen.width,
-                Math.random() * this.app.screen.height
-            );
-            this.animals.push(animal);
-            this.app.stage.addChild(animal);
-        }
+    spawnAnimals(): void {
+        const animal = new Animal(
+            Math.random() * this.app.screen.width,
+            Math.random() * this.app.screen.height
+        );
+        this.animals.push(animal);
+        this.app.stage.addChild(animal);
     }
 
-    update(deltaTime: number): void {
-        this.mainHero.update(deltaTime);
+    startSpawningAnimals(): void {
+        setInterval(() => {
+            this.spawnAnimals();
+        }, this.spawnInterval);
+    }
+
+    update(delta: Ticker): void {
+        this.mainHero.update(delta.deltaTime);
         const followingAnimals = this.animals.filter(animal => animal.following);
+
         if (followingAnimals.length < 5) {
             const animal = this.animals.find(animal => animal.canFollow(this.mainHero));
             if (animal) {
                 animal.following = true;
-                animal.setFollowPosition(followingAnimals.length, this.mainHero);
             }
         }
 
+        const heroInYard = this.mainHero.isInsideYard(this.yard);
         this.animals.forEach(animal => {
-            animal.update(deltaTime, this.mainHero);
+            animal.update(delta.deltaTime, this.mainHero, this.yard, heroInYard, followingAnimals);
+            if (heroInYard && animal.isInsideYard(this.yard)) {
+                this.score.increase();
+                this.app.stage.removeChild(animal);
+                this.animals = this.animals.filter(a => a !== animal);
+            }
         });
-
-        // Check if mainHero is in the yard
-        if (this.mainHero.hitTest(this.yard)) {
-            // Check if any following animal is also in the yard
-            followingAnimals.forEach(animal => {
-                if (animal.hitTest(this.yard)) {
-                    this.score.increase();
-                    this.app.stage.removeChild(animal);
-                    this.animals = this.animals.filter(a => a !== animal);
-                }
-            });
-        }
     }
 
     onPointerDown(event: FederatedPointerEvent): void {

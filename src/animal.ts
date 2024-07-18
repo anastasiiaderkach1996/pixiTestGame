@@ -1,56 +1,94 @@
-import { Graphics, Ticker } from 'pixi.js';
+import { Graphics } from 'pixi.js';
 import { MainHero } from './mainHero';
 import { Yard } from './yard';
+import { GameFieldHeight, GameFieldWidth } from './constants';
 
 export class Animal extends Graphics {
-    speed: number = 5;
+    speed: number = 2;
     following: boolean = false;
-    targetX: number = 0;
-    targetY: number = 0;
+    patrolTarget: { x: number, y: number } | null = null;
+    followIndex: number = 0;
 
     constructor(x: number, y: number) {
         super();
-        this.circle(0, 0, 10);
-        this.fill(0xffffff);
         this.x = x;
         this.y = y;
+        this.circle(0, 0, 5);
+        this.fill(0xffffff);
+        this.setPatrolTarget();
     }
 
-    update(delta: number, mainHero: MainHero): void {
+    update(delta: number, mainHero: MainHero, yard: Yard, heroInYard: boolean, followingAnimals: Animal[]): void {
         if (this.following) {
-            const dx = mainHero.x - this.x;
-            const dy = mainHero.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance > 1) {
-                this.x += (dx / distance) * this.speed * delta;
-                this.y += (dy / distance) * this.speed * delta;
-            }
+            this.followMainHero(delta, mainHero, followingAnimals);
+        } else {
+            this.patrol(delta);
+        }
+    
+        if (heroInYard && this.isInsideYard(yard)) {
+            this.following = false; 
+            this.setPatrolTarget(); 
         }
     }
 
+    followMainHero(delta: number, mainHero: MainHero, followingAnimals: Animal[]): void {
+        const angleStep = (2 * Math.PI) / followingAnimals.length;
+        const radius = 30;
+        const angle = angleStep * this.followIndex;
+        
+        const targetX = mainHero.x + Math.cos(angle) * radius;
+        const targetY = mainHero.y + Math.sin(angle) * radius;
 
-    hitTest(yard: Yard): boolean {
-        const animalBounds = this.getBounds();
-        const yardBounds = yard.getBounds();
-        return animalBounds.x >= yardBounds.x && 
-               animalBounds.x + animalBounds.width <= yardBounds.x + yardBounds.width &&
-               animalBounds.y >= yardBounds.y &&
-               animalBounds.y + animalBounds.height <= yardBounds.y + yardBounds.height;
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 1) {
+            this.x += (dx / dist) * this.speed * delta;
+            this.y += (dy / dist) * this.speed * delta;
+        }
     }
-
-    setFollowPosition(index: number, mainHero: MainHero): void {
-        const angle = (index / 5) * Math.PI * 2;
-        const distance = 30;
-        this.x = mainHero.x + Math.cos(angle) * distance;
-        this.y = mainHero.y + Math.sin(angle) * distance;
-    }
-
 
     canFollow(mainHero: MainHero): boolean {
         const dx = mainHero.x - this.x;
         const dy = mainHero.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < 100;
+        return distance < 50;
+    }
+
+    patrol(delta: number): void {
+        if (!this.patrolTarget) {
+            this.setPatrolTarget();
+        }
+
+        const dx = this.patrolTarget!.x - this.x;
+        const dy = this.patrolTarget!.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 5) {
+            this.x += (dx / distance) * this.speed * delta;
+            this.y += (dy / distance) * this.speed * delta;
+        } else {
+            this.setPatrolTarget();
+        }
+    }
+
+    setPatrolTarget(): void {
+        this.patrolTarget = {
+            x: Math.random() * GameFieldWidth, 
+            y: Math.random() * GameFieldHeight
+        };
+    }
+
+    isInsideYard(yard: Yard): boolean {
+        const yardBounds = yard.getBounds();
+        const animalBounds = this.getBounds();
+    
+        return (
+            animalBounds.x + animalBounds.width > yardBounds.x &&
+            animalBounds.x < yardBounds.x + yardBounds.width &&
+            animalBounds.y + animalBounds.height > yardBounds.y &&
+            animalBounds.y < yardBounds.y + yardBounds.height
+        );
     }
 }

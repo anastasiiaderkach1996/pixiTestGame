@@ -8,12 +8,24 @@ export class MainHero extends Graphics {
 
     constructor(x: number, y: number) {
         super();
-        this.circle(0, 0, 15);
-        this.fill(0xff0000);
         this.x = x;
         this.y = y;
         this.targetX = x;
         this.targetY = y;
+        this.circle(0, 0, 10); 
+        this.fill(0xff0000);
+    }
+
+    update(delta: number): void {
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 1) {
+            const moveDistance = Math.min(distance, this.speed * delta);
+            this.x += (dx / distance) * moveDistance;
+            this.y += (dy / distance) * moveDistance;
+        }
     }
 
     moveToPoint(x: number, y: number): void {
@@ -21,29 +33,15 @@ export class MainHero extends Graphics {
         this.targetY = y;
     }
 
-    update(delta: number): void {
-        const dx = this.targetX - this.x;
-        const dy = this.targetY - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-    
-        if (distance > 1) {
-            const moveX = (dx / distance) * this.speed * delta;
-            const moveY = (dy / distance) * this.speed * delta;
-    
-            this.x += moveX;
-            this.y += moveY;
-        } else {
-            this.x = this.targetX;
-            this.y = this.targetY;
-        }
-    } 
-
-    hitTest(yard: Yard): boolean {
+    isInsideYard(yard: Yard): boolean {
         const heroBounds = this.getBounds();
         const yardBounds = yard.getBounds();
-        return heroBounds.x >= yardBounds.x && 
-               heroBounds.x + heroBounds.width <= yardBounds.x + yardBounds.width &&
-               heroBounds.y >= yardBounds.y &&
-               heroBounds.y + heroBounds.height <= yardBounds.y + yardBounds.height;
+    
+        return (
+            heroBounds.x + heroBounds.width > yardBounds.x &&
+            heroBounds.x < yardBounds.x + yardBounds.width &&
+            heroBounds.y + heroBounds.height > yardBounds.y &&
+            heroBounds.y < yardBounds.y + yardBounds.height
+        );
     }
 }
